@@ -3,25 +3,47 @@ services:
     image: postgres:17-alpine
     container_name: BookQHub-catalog-db
     restart: unless-stopped
-
+    env_file:
+      - ".env"
     environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: BookQHub_catalog
-      POSTGRES_USER: catalog_user
-      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD}
-
     ports:
-      - "5433:5432"
-
+      - "5432:5432"
     volumes:
       - catalog_postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test:
         - CMD-SHELL
-        - pg_isready -U catalog_user -d BookQHub_catalog
+        - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
       interval: 10s
       timeout: 5s
       retries: 5
+
+  catalog-service:
+    build:
+      context: ../../BookQHub--catalog-service
+      dockerfile: Dockerfile
+    container_name: BookQHub-catalog-service
+    restart: unless-stopped
+    env_file:
+      - ".env"
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 3000
+      LOG_LEVEL: debug
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_SSL: "false"
+      DATABASE_POOL_MAX: 10
+      DATABASE_CONNECTION_TIMEOUT_MS: 5000
+      DATABASE_IDLE_TIMEOUT_MS: 10000
+    ports:
+      - "3000:3000"
+    depends_on:
+      catalog-db:
+        condition: service_healthy
 
 volumes:
   catalog_postgres_data:
